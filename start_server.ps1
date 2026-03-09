@@ -1,0 +1,1 @@
+& "C:\Users\HP\AppData\Local\Programs\Python\Python311\python.exe" ai_server/main.py
