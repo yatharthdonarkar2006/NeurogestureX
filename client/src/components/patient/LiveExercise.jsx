@@ -61,9 +61,10 @@ const LiveExercise = ({ onFeedbackUpdate, isActive = true }) => {
         return { video: base };
     }
 
-    // Strict: specific resolution
+    // Default: use base with no strict width/height constraints to maximize compatibility
+    // Some basic webcams fail if exactly 640x480@15 is requested.
     return {
-      video: { ...base, width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } }
+      video: base
     };
   };
 
@@ -380,9 +381,22 @@ const LiveExercise = ({ onFeedbackUpdate, isActive = true }) => {
     // Frame processing loop
     const intervalId = setInterval(() => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && videoRef.current) {
-            captureAndSendFrame();
+            // Self-healing timeout for dropped frames
+            if (awaitingRef.current) {
+                // If it's been locked for 1.5s, force unlock
+                if (!wsRef.current.lastLockTime) {
+                    wsRef.current.lastLockTime = Date.now();
+                } else if (Date.now() - wsRef.current.lastLockTime > 1500) {
+                    console.warn("Backend frame timeout. Force unlocking.");
+                    awaitingRef.current = false;
+                    wsRef.current.lastLockTime = null;
+                }
+            } else {
+                wsRef.current.lastLockTime = null;
+                captureAndSendFrame();
+            }
         }
-    }, 100); // Send 10 fps
+    }, 100); // Process frame 10 times a second
 
     return () => {
       clearInterval(intervalId);
@@ -445,40 +459,45 @@ const LiveExercise = ({ onFeedbackUpdate, isActive = true }) => {
            </div>
            <p className="text-white text-lg font-bold drop-shadow-md">{localFeedback}</p>
            
-           {/* Camera Selector (Only if devices found) */}
-           {videoDevices.length > 0 && (
-              <div className="mt-2 mb-2">
-                  <select 
-                    className="bg-black/50 text-white text-xs p-1 rounded border border-gray-600 max-w-full"
-                    value={selectedDeviceId}
-                    onChange={(e) => {
-                        const newId = e.target.value;
-                        setSelectedDeviceId(newId);
-                        // Trigger restart with new device
-                        setTimeout(() => startWebcam(3, false, false), 100);
-                    }}
-                  >
-                      {videoDevices.map((device, idx) => (
-                          <option key={device.deviceId} value={device.deviceId}>
-                              {device.label || `Camera ${idx + 1}`}
-                          </option>
-                      ))}
-                  </select>
-              </div>
-           )}
+           {/* Hide Camera settings when game is actively playing */}
+           {!(["Catch the circle!", "Too slow! Try again."].includes(localFeedback) || localFeedback.startsWith("Nice!")) && (
+             <>
+               {/* Camera Selector (Only if devices found) */}
+               {videoDevices.length > 0 && (
+                  <div className="mt-2 mb-2">
+                      <select 
+                        className="bg-black/50 text-white text-xs p-1 rounded border border-gray-600 max-w-full"
+                        value={selectedDeviceId}
+                        onChange={(e) => {
+                            const newId = e.target.value;
+                            setSelectedDeviceId(newId);
+                            // Trigger restart with new device
+                            setTimeout(() => startWebcam(3, false, false), 100);
+                        }}
+                      >
+                          {videoDevices.map((device, idx) => (
+                              <option key={device.deviceId} value={device.deviceId}>
+                                  {device.label || `Camera ${idx + 1}`}
+                              </option>
+                          ))}
+                      </select>
+                  </div>
+               )}
 
-           <div className="mt-3 flex justify-center gap-2">
-             <button
-               onClick={() => {
-                 setLocalFeedback("Retrying camera...");
-                 // Retry with relaxed constraints and ignoring device ID to ensure connection
-                 startWebcam(3, true, true);
-               }}
-               className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-full"
-             >
-               Retry Camera
-             </button>
-           </div>
+               <div className="mt-3 flex justify-center gap-2">
+                 <button
+                   onClick={() => {
+                     setLocalFeedback("Retrying camera...");
+                     // Retry with relaxed constraints and ignoring device ID to ensure connection
+                     startWebcam(3, true, true);
+                   }}
+                   className="px-3 py-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-full"
+                 >
+                   Retry Camera
+                 </button>
+               </div>
+             </>
+           )}
         </div>
       </div>
       

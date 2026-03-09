@@ -87,7 +87,20 @@ const TherapySession = () => {
       {/* Header */}
       <div className="flex justify-between items-center mb-6 max-w-7xl mx-auto">
         <button 
-          onClick={() => navigate('/patient/dashboard')}
+          onClick={() => {
+            // Save progress before exiting
+            if (score > 0) {
+                const currentScore = parseInt(localStorage.getItem('dashboard_mobility_score') || '0', 10);
+                const currentMins = parseInt(localStorage.getItem('dashboard_practice_mins') || '0', 10);
+                
+                // Add score (cap at 100 for percentage)
+                localStorage.setItem('dashboard_mobility_score', Math.min(100, currentScore + score).toString());
+                
+                // Add 1 minute of practice time per session played for demo purposes
+                localStorage.setItem('dashboard_practice_mins', (currentMins + 1).toString());
+            }
+            navigate('/patient/dashboard');
+          }}
           className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors bg-gray-800 px-4 py-2 rounded-lg"
         >
           <ArrowLeft size={20} />

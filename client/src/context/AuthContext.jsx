@@ -5,11 +5,10 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    if (token && storedUser) {
-      return JSON.parse(storedUser);
-    }
+    // Clear storage on load to force a new login every time the app starts/refreshes
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+
     if (import.meta.env.VITE_DEMO_MODE === 'true') {
       const demoUser = { id: 'demo', fullName: 'Demo Patient', email: 'demo@local', role: 'patient', isProfileComplete: true };
       localStorage.setItem('user', JSON.stringify(demoUser));

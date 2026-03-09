@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
@@ -11,6 +12,35 @@ import MainFeatures from '../components/patient/MainFeatures';
 const PatientDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [dashboardStats, setDashboardStats] = useState({
+    streak: 1,
+    streakDelta: 0,
+    mobilityScore: 0,
+    mobilityDelta: 0,
+    practiceTime: '0h 0m',
+    level: 1,
+    badgesEarned: 0,
+    totalBadges: 50
+  });
+
+  useEffect(() => {
+     // Load dynamic stats from local storage when dashboard loads
+     const savedScore = parseInt(localStorage.getItem('dashboard_mobility_score') || '0', 10);
+     const savedMins = parseInt(localStorage.getItem('dashboard_practice_mins') || '0', 10);
+     
+     const hours = Math.floor(savedMins / 60);
+     const mins = savedMins % 60;
+     
+     // Calculate a delta specifically for demo purposes (compare to half score)
+     const delta = savedScore > 0 ? Math.round(savedScore * 0.1) : 0;
+     
+     setDashboardStats(prev => ({
+         ...prev,
+         mobilityScore: savedScore,
+         mobilityDelta: delta,
+         practiceTime: `${hours}h ${mins}m`
+     }));
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -26,16 +56,7 @@ const PatientDashboard = () => {
     >
       <WelcomeHeader user={user} onLogout={handleLogout} />
       
-      <StatsOverview stats={{
-        streak: 0,
-        streakDelta: 0,
-        mobilityScore: 0,
-        mobilityDelta: 0,
-        practiceTime: '0h 0m',
-        level: 1,
-        badgesEarned: 0,
-        totalBadges: 50
-      }} />
+      <StatsOverview stats={dashboardStats} />
       
       <TeleRehabAI />
 

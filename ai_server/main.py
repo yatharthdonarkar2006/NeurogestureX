@@ -124,6 +124,12 @@ class CircleGame:
                     hit = True
                     break
         
+        # Update the time we were last seen so the clock pauses when off-camera
+        if not landmarks:
+            # Shift the last target time forward to effectively pause the game
+            self.last_target_time = time.time()
+            # Still check for overall session timeout below, but don't check ring timeout
+        
         feedback_text = "Catch the circle!"
         
         if hit:
@@ -147,8 +153,8 @@ class CircleGame:
             self.last_target_time = time.time()
             feedback_text = f"Nice! Level {self.level}"
                 
-        elif time.time() - self.last_target_time > self.config["duration"]:
-            # Timeout based on adaptive duration
+        elif landmarks and time.time() - self.last_target_time > self.config["duration"]:
+            # Timeout based on adaptive duration (only if we can actually see the user!)
             self.total_attempts += 1 # Count as missed attempt
             
             # ADAPTIVE UPDATE ON MISS
@@ -376,6 +382,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 
                 if frame is None:
+                    feedback = {
+                        "landmarks": [],
+                        "feedback_text": "Bad Camera Frame. Retrying...",
+                        "count": counter,
+                        "stage": stage,
+                        "is_correct": False
+                    }
+                    await websocket.send_text(json.dumps(feedback))
                     continue
                 
                 # Brightness Check
